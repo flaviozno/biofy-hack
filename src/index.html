@@ -350,7 +350,7 @@
           await searchYouTube(input.value);
           try {
             const response = await fetch(
-              "http://localhost:5000/batch-analiysis-ctx",
+              "http://localhost:5000/batch-analysis-ctx",
               {
                 method: "POST",
                 headers: {
@@ -397,7 +397,7 @@
       if (videoLinks.length === 0) return;
 
       try {
-        const response = await fetch("http://localhost:5000/batch-analiysis", {
+        const response = await fetch("http://localhost:5000/batch-analysis", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
