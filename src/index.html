@@ -34,11 +34,23 @@
       >
         &times;
       </button>
-      <p class="text-gray-200 text-lg text-center mb-6">
-        Adicione links de vídeos do YouTube para exibir as thumbnails abaixo.
-      </p>
 
-      <div class="flex gap-4 mb-4">
+      <div class="flex items-center justify-center gap-6 mb-6 text-white">
+        <button
+          id="modeLink"
+          class="mode-btn bg-blue-700 hover:bg-blue-800 px-4 py-2 rounded-lg flex items-center gap-2 font-bold shadow-md"
+        >
+          <i class="fas fa-link"></i> Link
+        </button>
+        <button
+          id="modeContext"
+          class="mode-btn bg-gray-700 hover:bg-gray-800 px-4 py-2 rounded-lg flex items-center gap-2 font-bold shadow-md"
+        >
+          <i class="fas fa-align-left"></i> Contexto
+        </button>
+      </div>
+
+      <div id="inputArea" class="flex flex-col gap-4 mb-4">
         <input
           type="text"
           id="youtubeLink"
@@ -230,6 +242,7 @@
     </div>
   </body>
   <script>
+    const videoCtx = [];
     const videoLinks = [];
     const lightSpot = document.getElementById("lightSpot");
     let mouseX = 0,
@@ -247,6 +260,121 @@
     let charIndex = 0;
     let isDeleting = false;
     const textElement = document.getElementById("dynamic-text");
+    let currentMode = "link";
+
+    const modeLinkBtn = document.getElementById("modeLink");
+    const modeContextBtn = document.getElementById("modeContext");
+    const inputArea = document.getElementById("inputArea");
+
+    const searchYouTube = async (query) => {
+      const apiKey = "AIzaSyAKLlonC2728ixCpvIe4hOgtDJ6OzfhM98";
+      try {
+        const searchResponse = await fetch(
+          `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=5&q=${encodeURIComponent(
+            query
+          )}&key=${apiKey}`
+        );
+        const searchData = await searchResponse.json();
+
+        const videoIds = searchData.items
+          .map((item) => item.id.videoId)
+          .join(",");
+
+        const detailsResponse = await fetch(
+          `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoIds}&key=${apiKey}`
+        );
+        const detailsData = await detailsResponse.json();
+
+        detailsData.items.forEach((video) => {
+          const videoId = video.id;
+          const tags = video.snippet.tags || ["(sem tags)"];
+          const link = `https://www.youtube.com/watch?v=${videoId}`;
+          videoCtx.push({
+            link: link,
+            tags: tags.map((tag) => String(tag)),
+          });
+        });
+      } catch (error) {
+        console.error("Erro ao buscar vídeos:", error);
+      }
+    };
+
+    modeLinkBtn.addEventListener("click", () => {
+      currentMode = "link";
+      modeLinkBtn.classList.add("bg-blue-700");
+      modeContextBtn.classList.toggle("bg-blue-700");
+      modeContextBtn.classList.add("bg-gray-700");
+      inputArea.innerHTML = `
+    <input
+      type="text"
+      id="youtubeLink"
+      placeholder="Cole o link do vídeo do YouTube"
+      class="flex-1 px-4 py-2 rounded-lg bg-gray-700 text-white focus:outline-none"
+    />
+    <button
+      id="addLinkBtn"
+      class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-2 rounded-lg text-center"
+    >
+      Adicionar
+    </button>
+  `;
+    });
+
+    modeContextBtn.addEventListener("click", () => {
+      currentMode = "context";
+      modeContextBtn.classList.add("bg-blue-700");
+      modeLinkBtn.classList.toggle("bg-blue-700");
+      modeLinkBtn.classList.add("bg-gray-700");
+
+      inputArea.innerHTML = `
+    <div class="flex flex-col gap-4 mb-4">
+      <textarea
+        id="contextInput"
+        placeholder="Descreva o contexto para análise..."
+        class="w-full p-4 rounded-lg bg-gray-700 text-white focus:outline-none resize-none"
+        rows="4"
+      ></textarea>
+      <button
+        id="addCtxBtn"
+        class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-2 rounded-lg"
+      >
+        Adicionar
+      </button>
+    </div>
+  `;
+
+      document
+        .getElementById("addCtxBtn")
+        .addEventListener("click", async () => {
+          const input = document.getElementById("contextInput");
+          await searchYouTube(input.value);
+          try {
+            const response = await fetch(
+              "http://localhost:5000/batch-analiysis-ctx",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  videoCtx,
+                  max_comments_per_video: 20,
+                }),
+              }
+            );
+
+            if (!response.ok) throw new Error("Erro ao enviar para API");
+
+            const data = await response.json();
+            alert("Enviado com sucesso!");
+            console.log("Resposta:", data);
+          } catch (err) {
+            console.error("Erro:", err);
+            alert("Erro ao enviar para API");
+          }
+          // console.log("Contexto:", input.value);
+        });
+    });
 
     function toggleWhatsApp() {
       const chatBox = document.getElementById("whatsapp-chat");
